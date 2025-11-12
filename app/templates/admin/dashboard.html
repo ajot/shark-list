@@ -4,22 +4,9 @@
 
 {% block content %}
 <div class="mb-8">
-    <div class="flex justify-between items-start">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-900">DO Sharks Admin Dashboard 🦈</h1>
-            <p class="text-gray-600 mt-2">Manage DigitalOcean employee Twitter list submissions and members</p>
-        </div>
-        <div>
-            <a
-                href="{{ url_for('admin.bulk_add_members') }}"
-                class="inline-flex items-center px-4 py-2 border-2 border-gray-700 text-sm font-semibold rounded-lg shadow-md text-gray-700 bg-white hover:bg-gray-700 hover:text-white transition duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-700"
-            >
-                <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                </svg>
-                Bulk Add
-            </a>
-        </div>
+    <div>
+        <h1 class="text-3xl font-bold text-gray-900">DO Sharks Admin Dashboard 🦈</h1>
+        <p class="text-gray-600 mt-2">Manage DigitalOcean employee Twitter list submissions and members</p>
     </div>
 
     <!-- Stats -->

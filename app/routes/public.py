@@ -15,9 +15,9 @@ def index():
 
 @bp.route('/submit', methods=['POST'])
 def submit():
-    """Handle form submission"""
+    """Handle form submission - supports single or multiple Twitter handles"""
     email = request.form.get('email', '').strip()
-    twitter_handle = request.form.get('twitter_handle', '').strip()
+    twitter_handles_text = request.form.get('twitter_handles', '').strip()
 
     # Validation
     errors = []
@@ -32,10 +32,8 @@ def submit():
         except EmailNotValidError as e:
             errors.append(f"Invalid email: {str(e)}")
 
-    if not twitter_handle:
-        errors.append("Twitter handle is required")
-    elif len(twitter_handle) < 1 or len(twitter_handle) > 15:
-        errors.append("Twitter handle must be between 1 and 15 characters")
+    if not twitter_handles_text:
+        errors.append("At least one Twitter handle is required")
 
     # If there are validation errors, show them and return to form
     if errors:
@@ -43,51 +41,100 @@ def submit():
             flash(error, 'error')
         return render_template('index.html'), 400
 
-    # Check if submission already exists
-    normalized_handle = Submission.normalize_handle(twitter_handle)
-    existing_submission = Submission.query.filter_by(twitter_handle=normalized_handle).first()
+    # Parse handles (split by newlines, strip whitespace, remove @ symbols)
+    handles = []
+    for line in twitter_handles_text.split('\n'):
+        handle = line.strip().lstrip('@')
+        if handle:  # Skip empty lines
+            # Validate handle length
+            if len(handle) < 1 or len(handle) > 15:
+                flash(f"Twitter handle '{handle}' must be between 1 and 15 characters", 'error')
+                return render_template('index.html'), 400
+            handles.append(handle)
 
-    if existing_submission:
-        if existing_submission.status == Submission.STATUS_PENDING:
-            flash(
-                f"The Twitter handle @{normalized_handle} has already been submitted and is pending approval. "
-                "Please check back later.",
-                'error'
+    if not handles:
+        flash("No valid Twitter handles found", 'error')
+        return render_template('index.html'), 400
+
+    # Process each handle
+    results = {
+        'success': [],
+        'skipped': [],
+        'failed': []
+    }
+
+    for handle in handles:
+        # Normalize handle for comparison
+        normalized_handle = Submission.normalize_handle(handle)
+
+        # Check if submission already exists
+        existing_submission = Submission.query.filter_by(twitter_handle=normalized_handle).first()
+
+        if existing_submission:
+            if existing_submission.status == Submission.STATUS_PENDING:
+                results['skipped'].append({
+                    'handle': handle,
+                    'reason': 'Already pending approval'
+                })
+                continue
+            elif existing_submission.status == Submission.STATUS_APPROVED:
+                results['skipped'].append({
+                    'handle': handle,
+                    'reason': 'Already approved'
+                })
+                continue
+            # If rejected, allow re-submission by deleting the old one
+            else:
+                try:
+                    db.session.delete(existing_submission)
+                    db.session.flush()  # Ensure deletion happens before insert
+                except Exception as e:
+                    db.session.rollback()
+                    results['failed'].append({
+                        'handle': handle,
+                        'error': f"Failed to delete old submission: {str(e)}"
+                    })
+                    continue
+
+        try:
+            # Create submission
+            submission = Submission(
+                email=email,
+                twitter_handle=handle
             )
-            return render_template('index.html'), 400
-        elif existing_submission.status == Submission.STATUS_APPROVED:
-            flash(
-                f"The Twitter handle @{normalized_handle} has already been approved and is on the list!",
-                'error'
-            )
-            return render_template('index.html'), 400
-        # If rejected, allow re-submission by deleting the old one
-        else:
-            try:
-                db.session.delete(existing_submission)
-                db.session.flush()  # Ensure deletion happens before insert
-            except Exception as e:
-                db.session.rollback()
-                flash(f"An error occurred while removing old submission: {str(e)}", 'error')
-                return render_template('index.html'), 500
+            db.session.add(submission)
+            db.session.commit()
 
-    # Create submission
-    try:
-        submission = Submission(
-            email=email,
-            twitter_handle=twitter_handle
-        )
-        db.session.add(submission)
-        db.session.commit()
+            results['success'].append(handle)
 
+        except Exception as e:
+            db.session.rollback()
+            results['failed'].append({
+                'handle': handle,
+                'error': str(e)
+            })
+
+    # Show summary message
+    message_parts = []
+    if results['success']:
+        handles_str = ", ".join([f"@{h}" for h in results['success']])
+        message_parts.append(f"Successfully submitted: {handles_str}")
+    if results['skipped']:
+        for item in results['skipped']:
+            message_parts.append(f"@{item['handle']} - {item['reason']}")
+    if results['failed']:
+        for item in results['failed']:
+            message_parts.append(f"@{item['handle']} - Error: {item['error']}")
+
+    if results['success']:
         flash(
-            f"Thank you! Your request to add @{submission.twitter_handle} has been submitted successfully. "
-            "We'll review it shortly and add you to our Twitter list.",
+            f"Thank you! {len(results['success'])} handle(s) submitted successfully. "
+            "We'll review them shortly and add you to our Twitter list.",
             'success'
         )
-        return redirect(url_for('public.index'))
 
-    except Exception as e:
-        db.session.rollback()
-        flash(f"An error occurred: {str(e)}", 'error')
-        return render_template('index.html'), 500
+    if results['skipped'] or results['failed']:
+        for msg in message_parts[len(results['success']):]:
+            flash(msg, 'error')
+
+    return redirect(url_for('public.index'))

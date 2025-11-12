@@ -32,26 +32,20 @@
 
             <!-- Twitter Handle Field -->
             <div>
-                <label for="twitter_handle" class="block text-sm font-medium text-gray-700 mb-2">
-                    Twitter Handle <span class="text-red-500">*</span>
+                <label for="twitter_handles" class="block text-sm font-medium text-gray-700 mb-2">
+                    Twitter Handle(s) <span class="text-red-500">*</span>
                 </label>
-                <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <span class="text-gray-500 sm:text-sm">@</span>
-                    </div>
-                    <input
-                        type="text"
-                        id="twitter_handle"
-                        name="twitter_handle"
-                        required
-                        class="input-field pl-7"
-                        placeholder="yourusername"
-                        pattern="[A-Za-z0-9_]+"
-                        title="Twitter handle can only contain letters, numbers, and underscores"
-                        value="{{ request.form.twitter_handle if request.form }}"
-                    >
-                </div>
-                <p class="mt-1 text-sm text-gray-500">Enter your Twitter username without the @ symbol</p>
+                <textarea
+                    id="twitter_handles"
+                    name="twitter_handles"
+                    required
+                    rows="4"
+                    class="input-field"
+                    placeholder="yourusername&#10;teammate1&#10;teammate2"
+                >{{ request.form.twitter_handles if request.form }}</textarea>
+                <p class="mt-1 text-sm text-gray-500">
+                    Enter one or more Twitter usernames (one per line). The @ symbol is optional.
+                </p>
             </div>
 
             <!-- Submit Button -->
