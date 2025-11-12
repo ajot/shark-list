@@ -13,6 +13,8 @@ services:
     instance_count: 1
     instance_size_slug: basic-xxs
     envs:
+      - key: FLASK_APP
+        value: wsgi.py
       - key: FLASK_ENV
         value: production
       - key: SECRET_KEY
