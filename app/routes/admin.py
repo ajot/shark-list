@@ -95,8 +95,14 @@ def approve(submission_id):
         # Initialize Twitter service
         twitter = TwitterService()
 
-        # Get Twitter user ID
-        user_id = twitter.get_user_id(submission.twitter_handle)
+        # Get Twitter user ID (use cached if available to save API calls)
+        if submission.twitter_user_id:
+            user_id = submission.twitter_user_id
+        else:
+            user_id = twitter.get_user_id(submission.twitter_handle)
+            # Cache the user_id for future use
+            submission.twitter_user_id = user_id
+            db.session.commit()
 
         # Add to Twitter list
         twitter.add_to_list(user_id)
@@ -190,8 +196,16 @@ def bulk_approve():
             continue
 
         try:
-            # Get Twitter user ID and add to list
-            user_id = twitter.get_user_id(submission.twitter_handle)
+            # Get Twitter user ID (use cached if available to save API calls)
+            if submission.twitter_user_id:
+                user_id = submission.twitter_user_id
+            else:
+                user_id = twitter.get_user_id(submission.twitter_handle)
+                # Cache the user_id for future use
+                submission.twitter_user_id = user_id
+                db.session.commit()
+
+            # Add to list
             twitter.add_to_list(user_id)
 
             # Update submission
