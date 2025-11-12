@@ -47,6 +47,9 @@ class TwitterService:
                 raise Exception(f"User '@{username}' not found")
 
             if response.status_code == 429:
+                rate_limit_reset = response.headers.get('x-rate-limit-reset', 'unknown')
+                remaining = response.headers.get('x-rate-limit-remaining', 'unknown')
+                logger.error(f"Rate limit exceeded: get_user_id(@{username}). Remaining: {remaining}, Reset: {rate_limit_reset}")
                 raise Exception("Twitter API rate limit exceeded. Please try again later.")
 
             if response.status_code != 200:
@@ -84,6 +87,9 @@ class TwitterService:
             response = requests.post(url, auth=self.auth, json=payload)
 
             if response.status_code == 429:
+                rate_limit_reset = response.headers.get('x-rate-limit-reset', 'unknown')
+                remaining = response.headers.get('x-rate-limit-remaining', 'unknown')
+                logger.error(f"Rate limit exceeded: add_to_list(user_id={user_id}). Remaining: {remaining}, Reset: {rate_limit_reset}")
                 raise Exception("Twitter API rate limit exceeded. Please try again later.")
 
             # User already in list is considered success
@@ -125,6 +131,9 @@ class TwitterService:
             response = requests.delete(url, auth=self.auth)
 
             if response.status_code == 429:
+                rate_limit_reset = response.headers.get('x-rate-limit-reset', 'unknown')
+                remaining = response.headers.get('x-rate-limit-remaining', 'unknown')
+                logger.error(f"Rate limit exceeded: remove_from_list(user_id={user_id}). Remaining: {remaining}, Reset: {rate_limit_reset}")
                 raise Exception("Twitter API rate limit exceeded. Please try again later.")
 
             if response.status_code == 404:
@@ -195,6 +204,9 @@ class TwitterService:
                 response = requests.get(url, auth=self.auth, params=params)
 
                 if response.status_code == 429:
+                    rate_limit_reset = response.headers.get('x-rate-limit-reset', 'unknown')
+                    remaining = response.headers.get('x-rate-limit-remaining', 'unknown')
+                    logger.error(f"Rate limit exceeded: get_list_members(page={len(members)//max_results + 1}). Remaining: {remaining}, Reset: {rate_limit_reset}")
                     raise Exception("Twitter API rate limit exceeded. Please try again later.")
 
                 if response.status_code != 200:
