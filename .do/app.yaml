@@ -9,7 +9,7 @@ services:
     build_command: |
       npm install
       npm run build:css
-    run_command: gunicorn --config gunicorn_config.py wsgi:app
+    run_command: gunicorn --bind 0.0.0.0:8080 --workers 2 --threads 2 --timeout 120 wsgi:app
     http_port: 8080
     instance_count: 1
     instance_size_slug: basic-xxs

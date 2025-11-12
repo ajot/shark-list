@@ -15,8 +15,9 @@ workers = int(os.getenv("GUNICORN_WORKERS", multiprocessing.cpu_count() * 2 + 1)
 worker_class = "gthread"
 threads = int(os.getenv("GUNICORN_THREADS", 2))
 
-# Worker temporary directory - use RAM for better performance
-worker_tmp_dir = "/dev/shm"
+# Worker temporary directory
+# Use /tmp for App Platform compatibility
+worker_tmp_dir = "/tmp"
 
 # Timeout configuration
 timeout = 120
