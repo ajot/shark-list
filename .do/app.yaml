@@ -1,0 +1,34 @@
+name: shark-list
+region: nyc
+services:
+  - name: web
+    github:
+      branch: main
+      deploy_on_push: true
+      repo: ajot/shark-list
+    build_command: |
+      npm install
+      npm run build:css
+    run_command: gunicorn --config gunicorn_config.py wsgi:app
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    routes:
+      - path: /
+    envs:
+      - key: FLASK_ENV
+        value: production
+      - key: DATABASE_URL
+        type: SECRET
+      - key: SECRET_KEY
+        type: SECRET
+      - key: TWITTER_API_KEY
+        type: SECRET
+      - key: TWITTER_API_SECRET
+        type: SECRET
+      - key: TWITTER_ACCESS_TOKEN
+        type: SECRET
+      - key: TWITTER_ACCESS_TOKEN_SECRET
+        type: SECRET
+      - key: TWITTER_LIST_ID
+        type: SECRET
