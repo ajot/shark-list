@@ -22,18 +22,12 @@ def dashboard():
     # Get total count of pending
     total_pending = Submission.query.filter_by(status=Submission.STATUS_PENDING).count()
 
-    # Members list with pagination and filtering
+    # Members list with pagination
     page = request.args.get('page', 1, type=int)
     per_page = current_app.config.get('ITEMS_PER_PAGE', 20)
-    source_filter = request.args.get('source', '').strip()
 
     # Build members query
-    members_query = ListMember.query
-
-    if source_filter:
-        members_query = members_query.filter_by(source=source_filter)
-
-    pagination = members_query.order_by(
+    pagination = ListMember.query.order_by(
         ListMember.synced_at.desc()
     ).paginate(
         page=page,
@@ -63,8 +57,7 @@ def dashboard():
         last_sync=last_sync,
         can_sync=can_sync,
         sync_message=sync_message,
-        stats=stats,
-        source_filter=source_filter
+        stats=stats
     )
 
 

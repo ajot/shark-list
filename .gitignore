@@ -42,9 +42,6 @@ migrations/
 # Node modules
 node_modules/
 
-# Compiled CSS
-app/static/css/output.css
-
 # IDE
 .vscode/
 .idea/
