@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <div class="flex justify-between items-start">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">DO Sharks Admin Dashboard 🦈</h1>
+            <p class="text-gray-600 mt-2">Manage DigitalOcean employee Twitter list submissions and members</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            {% if last_sync %}
+                <div class="text-sm text-gray-500">
+                    Last sync: {{ last_sync.sync_started_at.strftime('%Y-%m-%d %H:%M') }}
+                    <span class="{% if last_sync.status == 'completed' %}text-green-600{% elif last_sync.status == 'failed' %}text-red-600{% else %}text-yellow-600{% endif %} font-medium">
+                        ({{ last_sync.status }})
+                    </span>
+                </div>
+            {% endif %}
+            <a
+                href="{{ url_for('admin.bulk_add_members') }}"
+                class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-twitter-blue"
+            >
+                <svg class="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Bulk Add
+            </a>
+            <button
+                onclick="syncList()"
+                id="sync-button"
+                class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-twitter-blue hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-twitter-blue {% if not can_sync %}opacity-50 cursor-not-allowed{% endif %}"
+                {% if not can_sync %}disabled{% endif %}
+            >
+                <svg class="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Sync
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+        <div class="card">
+            <div class="text-sm text-gray-500">Total Sharks</div>
+            <div class="text-2xl font-bold text-gray-900 mt-1">{{ stats.total }}</div>
+        </div>
+        <div class="card">
+            <div class="text-sm text-gray-500">App Submitted</div>
+            <div class="text-2xl font-bold text-twitter-blue mt-1">{{ stats.app_submitted }}</div>
+        </div>
+        <div class="card">
+            <div class="text-sm text-gray-500">Pre-existing</div>
+            <div class="text-2xl font-bold text-green-600 mt-1">{{ stats.pre_existing }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Pending Submissions Section -->
+{% if pending_submissions %}
+    <div class="card mb-8">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-gray-900">Pending Submissions</h2>
+            {% if total_pending > pending_submissions|length %}
+                <a href="{{ url_for('admin.pending') }}" class="text-sm text-twitter-blue hover:text-blue-700 font-medium">
+                    View All ({{ total_pending }}) →
+                </a>
+            {% endif %}
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Twitter Handle</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for submission in pending_submissions %}
+                        <tr class="table-row-hover" id="row-{{ submission.id }}">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <svg class="h-5 w-5 text-twitter-blue mr-2" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
+                                    </svg>
+                                    <span class="font-medium text-gray-900">@{{ submission.twitter_handle }}</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {% if submission.email == 'bulk-added@system' %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                        Bulk Import
+                                    </span>
+                                {% else %}
+                                    {{ submission.email }}
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ submission.submitted_at.strftime('%Y-%m-%d %H:%M') }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <button
+                                    onclick="approveSubmission({{ submission.id }})"
+                                    class="btn-success text-xs py-1 px-3 mr-2"
+                                    id="approve-{{ submission.id }}"
+                                >
+                                    Approve
+                                </button>
+                                <button
+                                    onclick="rejectSubmission({{ submission.id }})"
+                                    class="btn-danger text-xs py-1 px-3"
+                                    id="reject-{{ submission.id }}"
+                                >
+                                    Reject
+                                </button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endif %}
+
+<!-- Filters -->
+<div class="card mb-6">
+    <form method="get" class="flex items-center space-x-4">
+        <div class="flex-1">
+            <label for="source" class="block text-sm font-medium text-gray-700 mb-1">Filter by Source</label>
+            <select name="source" id="source" class="input-field" onchange="this.form.submit()">
+                <option value="">All Members</option>
+                <option value="app_submitted" {% if source_filter == 'app_submitted' %}selected{% endif %}>App Submitted</option>
+                <option value="pre_existing" {% if source_filter == 'pre_existing' %}selected{% endif %}>Pre-existing</option>
+                <option value="bulk_added" {% if source_filter == 'bulk_added' %}selected{% endif %}>Bulk Added</option>
+            </select>
+        </div>
+        {% if source_filter %}
+            <div class="pt-6">
+                <a href="{{ url_for('admin.dashboard') }}" class="btn-secondary">
+                    Clear Filter
+                </a>
+            </div>
+        {% endif %}
+    </form>
+</div>
+
+<!-- List Members Section -->
+{% if members %}
+    <div class="card">
+        <h2 class="text-xl font-bold text-gray-900 mb-4">List Members</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Twitter Handle</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Added</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Synced</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for member in members %}
+                        <tr class="table-row-hover" id="member-row-{{ member.id }}">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <svg class="h-5 w-5 text-twitter-blue mr-2" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
+                                    </svg>
+                                    <a href="https://twitter.com/{{ member.username }}" target="_blank" class="font-medium text-twitter-blue hover:text-blue-700">
+                                        @{{ member.username }}
+                                    </a>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ member.name if member.name else '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if member.source == 'app_submitted' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        App Submitted
+                                    </span>
+                                {% elif member.source == 'pre_existing' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        Pre-existing
+                                    </span>
+                                {% elif member.source == 'bulk_added' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                        Bulk Added
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                        {{ member.source }}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ member.added_at.strftime('%Y-%m-%d') if member.added_at else 'N/A' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ member.synced_at.strftime('%Y-%m-%d %H:%M') if member.synced_at else 'N/A' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <button
+                                    onclick="removeMember({{ member.id }}, true)"
+                                    class="btn-danger text-xs py-1 px-3"
+                                    id="remove-member-{{ member.id }}"
+                                >
+                                    Remove
+                                </button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+        <div class="mt-6 flex justify-center">
+            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                {% if pagination.has_prev %}
+                    <a href="{{ url_for('admin.dashboard', page=pagination.prev_num, source=source_filter) }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                        Previous
+                    </a>
+                {% endif %}
+
+                {% for page in pagination.iter_pages() %}
+                    {% if page %}
+                        <a href="{{ url_for('admin.dashboard', page=page, source=source_filter) }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium {% if page == pagination.page %}text-twitter-blue bg-blue-50{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                            {{ page }}
+                        </a>
+                    {% else %}
+                        <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">...</span>
+                    {% endif %}
+                {% endfor %}
+
+                {% if pagination.has_next %}
+                    <a href="{{ url_for('admin.dashboard', page=pagination.next_num, source=source_filter) }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                        Next
+                    </a>
+                {% endif %}
+            </nav>
+        </div>
+    {% endif %}
+{% else %}
+    <div class="card text-center py-12">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">No members found</h3>
+        <p class="mt-1 text-sm text-gray-500">Click "Sync" to fetch all members from your Twitter list.</p>
+        <div class="mt-6">
+            <button onclick="syncList()" class="btn-primary">
+                Sync from Twitter
+            </button>
+        </div>
+    </div>
+{% endif %}
+
+<!-- Toast Notification -->
+<div id="toast" class="hidden fixed bottom-4 right-4 bg-white rounded-lg shadow-lg p-4 border-l-4 max-w-md z-50">
+    <p id="toast-message" class="text-sm font-medium"></p>
+</div>
+
+<!-- Loading Modal -->
+<div id="loading-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3 text-center">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100">
+                <svg class="animate-spin h-6 w-6 text-twitter-blue" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </div>
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mt-3">Syncing Twitter List</h3>
+            <div class="mt-2 px-7 py-3">
+                <p class="text-sm text-gray-500">
+                    Fetching members from Twitter API... This may take a moment.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+<script>
+    // Pass sync availability to JavaScript
+    const canSync = {{ 'true' if can_sync else 'false' }};
+    const syncMessage = "{{ sync_message }}";
+
+    if (!canSync) {
+        // Show tooltip or message when hovering over disabled button
+        document.getElementById('sync-button').title = syncMessage;
+    }
+</script>
+{% endblock %}

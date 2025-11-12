@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Pending Submissions{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Pending Shark Submissions 🦈</h1>
+            <p class="text-gray-600 mt-2">Review and approve DO employee requests</p>
+        </div>
+        {% if submissions %}
+            <div>
+                <button
+                    onclick="toggleBulkMode()"
+                    class="btn-secondary"
+                    id="bulkModeBtn"
+                >
+                    Enable Bulk Mode
+                </button>
+                <button
+                    onclick="bulkApprove()"
+                    class="btn-success hidden"
+                    id="bulkApproveBtn"
+                >
+                    Approve Selected
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if submissions %}
+    <div class="card">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left">
+                            <input
+                                type="checkbox"
+                                id="selectAll"
+                                class="rounded text-twitter-blue focus:ring-twitter-blue hidden bulk-checkbox"
+                                onclick="toggleSelectAll(this)"
+                            >
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Twitter Handle</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for submission in submissions %}
+                        <tr class="table-row-hover" id="row-{{ submission.id }}">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <input
+                                    type="checkbox"
+                                    class="rounded text-twitter-blue focus:ring-twitter-blue hidden bulk-checkbox submission-checkbox"
+                                    value="{{ submission.id }}"
+                                >
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <svg class="h-5 w-5 text-twitter-blue mr-2" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
+                                    </svg>
+                                    <a href="https://twitter.com/{{ submission.twitter_handle }}" target="_blank" class="font-medium text-twitter-blue hover:text-blue-700">
+                                        @{{ submission.twitter_handle }}
+                                    </a>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {% if submission.email == 'bulk-added@system' %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                        Bulk Import
+                                    </span>
+                                {% else %}
+                                    {{ submission.email }}
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ submission.submitted_at.strftime('%Y-%m-%d %H:%M') }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <button
+                                    onclick="approveSubmission({{ submission.id }})"
+                                    class="btn-success text-xs py-1 px-3 mr-2"
+                                    id="approve-{{ submission.id }}"
+                                >
+                                    Approve
+                                </button>
+                                <button
+                                    onclick="rejectSubmission({{ submission.id }})"
+                                    class="btn-danger text-xs py-1 px-3"
+                                    id="reject-{{ submission.id }}"
+                                >
+                                    Reject
+                                </button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+        <div class="mt-6 flex justify-center">
+            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                {% if pagination.has_prev %}
+                    <a href="{{ url_for('admin.pending', page=pagination.prev_num) }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                        Previous
+                    </a>
+                {% endif %}
+
+                {% for page in pagination.iter_pages() %}
+                    {% if page %}
+                        <a href="{{ url_for('admin.pending', page=page) }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium {% if page == pagination.page %}text-twitter-blue bg-blue-50{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                            {{ page }}
+                        </a>
+                    {% else %}
+                        <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">...</span>
+                    {% endif %}
+                {% endfor %}
+
+                {% if pagination.has_next %}
+                    <a href="{{ url_for('admin.pending', page=pagination.next_num) }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                        Next
+                    </a>
+                {% endif %}
+            </nav>
+        </div>
+    {% endif %}
+{% else %}
+    <div class="card text-center py-12">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">No pending submissions</h3>
+        <p class="mt-1 text-sm text-gray-500">All submissions have been processed.</p>
+    </div>
+{% endif %}
+
+<!-- Toast Notification -->
+<div id="toast" class="hidden fixed bottom-4 right-4 bg-white rounded-lg shadow-lg p-4 border-l-4 max-w-md">
+    <p id="toast-message" class="text-sm font-medium"></p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+{% endblock %}

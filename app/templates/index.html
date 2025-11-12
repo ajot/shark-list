@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Submit to Twitter List{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <!-- Header -->
+    <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Join the DO Sharks Twitter List 🦈</h1>
+        <p class="text-gray-600">DigitalOcean employees: Add your Twitter handle to our team list</p>
+    </div>
+
+    <!-- Submission Form -->
+    <div class="card">
+        <form method="POST" action="{{ url_for('public.submit') }}" class="space-y-6">
+            <!-- Email Field -->
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                    DigitalOcean Email Address <span class="text-red-500">*</span>
+                </label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    required
+                    class="input-field"
+                    placeholder="your.name@digitalocean.com"
+                    value="{{ request.form.email if request.form }}"
+                >
+                <p class="mt-1 text-sm text-gray-500">Use your @digitalocean.com email address</p>
+            </div>
+
+            <!-- Twitter Handle Field -->
+            <div>
+                <label for="twitter_handle" class="block text-sm font-medium text-gray-700 mb-2">
+                    Twitter Handle <span class="text-red-500">*</span>
+                </label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span class="text-gray-500 sm:text-sm">@</span>
+                    </div>
+                    <input
+                        type="text"
+                        id="twitter_handle"
+                        name="twitter_handle"
+                        required
+                        class="input-field pl-7"
+                        placeholder="yourusername"
+                        pattern="[A-Za-z0-9_]+"
+                        title="Twitter handle can only contain letters, numbers, and underscores"
+                        value="{{ request.form.twitter_handle if request.form }}"
+                    >
+                </div>
+                <p class="mt-1 text-sm text-gray-500">Enter your Twitter username without the @ symbol</p>
+            </div>
+
+            <!-- Submit Button -->
+            <div>
+                <button
+                    type="submit"
+                    class="w-full btn-primary py-3 text-lg"
+                >
+                    Submit Request
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Info Section -->
+    <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-blue-900 mb-3">What happens next?</h3>
+        <ul class="space-y-2 text-blue-800">
+            <li class="flex items-start">
+                <svg class="h-6 w-6 text-blue-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span>Your submission will be reviewed to verify you're a DO employee</span>
+            </li>
+            <li class="flex items-start">
+                <svg class="h-6 w-6 text-blue-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span>Once approved, you'll be automatically added to the DO Sharks Twitter list</span>
+            </li>
+            <li class="flex items-start">
+                <svg class="h-6 w-6 text-blue-500 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span>Join fellow sharks in representing DigitalOcean on Twitter!</span>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
