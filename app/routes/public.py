@@ -10,7 +10,9 @@ bp = Blueprint('public', __name__)
 @bp.route('/')
 def index():
     """Display the submission form"""
-    return render_template('index.html')
+    from flask import current_app
+    list_id = current_app.config.get('TWITTER_LIST_ID')
+    return render_template('index.html', list_id=list_id)
 
 
 @bp.route('/submit', methods=['POST'])
