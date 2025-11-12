@@ -18,17 +18,17 @@ services:
     envs:
       - key: FLASK_ENV
         value: production
-      - key: DATABASE_URL
-        type: SECRET
       - key: SECRET_KEY
         type: SECRET
-      - key: TWITTER_API_KEY
+      - key: API_KEY
         type: SECRET
-      - key: TWITTER_API_SECRET
+      - key: API_SECRET
         type: SECRET
-      - key: TWITTER_ACCESS_TOKEN
+      - key: ACCESS_TOKEN
         type: SECRET
-      - key: TWITTER_ACCESS_TOKEN_SECRET
+      - key: ACCESS_TOKEN_SECRET
         type: SECRET
-      - key: TWITTER_LIST_ID
+      - key: LIST_ID
         type: SECRET
+      - key: SYNC_COOLOFF_MINUTES
+        value: "5"
