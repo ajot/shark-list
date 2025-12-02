@@ -1,6 +1,7 @@
 import os
 import logging
 import requests
+from datetime import datetime, timezone
 from requests_oauthlib import OAuth1
 from flask import current_app
 
@@ -91,10 +92,9 @@ class TwitterService:
                 remaining = response.headers.get('x-rate-limit-remaining', 'unknown')
 
                 # Convert reset timestamp to readable time
-                from datetime import datetime
                 reset_time = None
                 try:
-                    reset_time = datetime.fromtimestamp(int(rate_limit_reset)).strftime('%Y-%m-%d %H:%M:%S')
+                    reset_time = datetime.fromtimestamp(int(rate_limit_reset), tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
                     logger.error(f"Rate limit exceeded: get_user_id(@{username}). Remaining: {remaining}, Reset at: {reset_time} (timestamp: {rate_limit_reset})")
                 except (ValueError, TypeError):
                     logger.error(f"Rate limit exceeded: get_user_id(@{username}). Remaining: {remaining}, Reset: {rate_limit_reset}")
@@ -147,10 +147,9 @@ class TwitterService:
                 remaining = response.headers.get('x-rate-limit-remaining', 'unknown')
 
                 # Convert reset timestamp to readable time
-                from datetime import datetime
                 reset_time = None
                 try:
-                    reset_time = datetime.fromtimestamp(int(rate_limit_reset)).strftime('%Y-%m-%d %H:%M:%S')
+                    reset_time = datetime.fromtimestamp(int(rate_limit_reset), tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
                     logger.error(f"Rate limit exceeded: add_to_list(user_id={user_id}). Remaining: {remaining}, Reset at: {reset_time} (timestamp: {rate_limit_reset})")
                 except (ValueError, TypeError):
                     logger.error(f"Rate limit exceeded: add_to_list(user_id={user_id}). Remaining: {remaining}, Reset: {rate_limit_reset}")
@@ -207,10 +206,9 @@ class TwitterService:
                 remaining = response.headers.get('x-rate-limit-remaining', 'unknown')
 
                 # Convert reset timestamp to readable time
-                from datetime import datetime
                 reset_time = None
                 try:
-                    reset_time = datetime.fromtimestamp(int(rate_limit_reset)).strftime('%Y-%m-%d %H:%M:%S')
+                    reset_time = datetime.fromtimestamp(int(rate_limit_reset), tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
                     logger.error(f"Rate limit exceeded: remove_from_list(user_id={user_id}). Remaining: {remaining}, Reset at: {reset_time} (timestamp: {rate_limit_reset})")
                 except (ValueError, TypeError):
                     logger.error(f"Rate limit exceeded: remove_from_list(user_id={user_id}). Remaining: {remaining}, Reset: {rate_limit_reset}")
@@ -302,7 +300,7 @@ class TwitterService:
                     from datetime import datetime
                     reset_time = None
                     try:
-                        reset_time = datetime.fromtimestamp(int(rate_limit_reset)).strftime('%Y-%m-%d %H:%M:%S')
+                        reset_time = datetime.fromtimestamp(int(rate_limit_reset), tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
                         logger.error(f"Rate limit exceeded: get_list_members(page={len(members)//max_results + 1}). Remaining: {remaining}, Reset at: {reset_time} (timestamp: {rate_limit_reset})")
                     except (ValueError, TypeError):
                         logger.error(f"Rate limit exceeded: get_list_members(page={len(members)//max_results + 1}). Remaining: {remaining}, Reset: {rate_limit_reset}")

@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, current_app, session
 from sqlalchemy import func
-from datetime import datetime
+from datetime import datetime, timezone
 import re
 from app import db
 from app.models import Submission, ListMember, SyncLog
@@ -24,7 +24,9 @@ def parse_rate_limit_reset(error_message: str) -> int:
     match = re.search(r'Resets at (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', error_message)
     if match:
         try:
+            # Parse and treat as UTC since Twitter API returns UTC timestamps
             dt = datetime.strptime(match.group(1), '%Y-%m-%d %H:%M:%S')
+            dt = dt.replace(tzinfo=timezone.utc)
             return int(dt.timestamp())
         except:
             pass

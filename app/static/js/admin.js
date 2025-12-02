@@ -90,7 +90,8 @@ function handleRateLimitError(errorMessage) {
     if (match) {
         const dateStr = match[1];
         console.log('Parsed reset time:', dateStr);
-        const resetDate = new Date(dateStr);
+        // Parse as UTC by converting to ISO format with 'Z' suffix
+        const resetDate = new Date(dateStr.replace(' ', 'T') + 'Z');
         const resetTimestamp = Math.floor(resetDate.getTime() / 1000);
         console.log('Reset timestamp:', resetTimestamp);
 
