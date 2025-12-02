@@ -21,6 +21,43 @@ class TwitterService:
             current_app.config['TWITTER_ACCESS_TOKEN_SECRET'],
         )
         self.list_id = current_app.config['TWITTER_LIST_ID']
+        self.last_rate_limit_info = None
+
+    def _extract_rate_limit_info(self, response) -> dict:
+        """
+        Extract rate limit information from response headers.
+
+        Args:
+            response: requests.Response object
+
+        Returns:
+            dict: Rate limit info with 'remaining', 'limit', 'reset'
+        """
+        try:
+            remaining = int(response.headers.get('x-rate-limit-remaining', 0))
+            limit = int(response.headers.get('x-rate-limit-limit', 0))
+            reset = int(response.headers.get('x-rate-limit-reset', 0))
+
+            info = {
+                'remaining': remaining,
+                'limit': limit,
+                'reset': reset
+            }
+
+            # Store for later retrieval
+            self.last_rate_limit_info = info
+            return info
+        except (ValueError, TypeError):
+            return None
+
+    def get_rate_limit_info(self) -> dict:
+        """
+        Get the last captured rate limit information.
+
+        Returns:
+            dict: Rate limit info or None if not available
+        """
+        return self.last_rate_limit_info
 
     def get_user_id(self, username: str) -> str:
         """
@@ -43,6 +80,9 @@ class TwitterService:
         try:
             response = requests.get(url, auth=self.auth)
 
+            # Capture rate limit info from response
+            self._extract_rate_limit_info(response)
+
             if response.status_code == 404:
                 raise Exception(f"User '@{username}' not found")
 
@@ -52,12 +92,17 @@ class TwitterService:
 
                 # Convert reset timestamp to readable time
                 from datetime import datetime
+                reset_time = None
                 try:
                     reset_time = datetime.fromtimestamp(int(rate_limit_reset)).strftime('%Y-%m-%d %H:%M:%S')
                     logger.error(f"Rate limit exceeded: get_user_id(@{username}). Remaining: {remaining}, Reset at: {reset_time} (timestamp: {rate_limit_reset})")
-                    raise Exception(f"Twitter API rate limit exceeded. Resets at {reset_time}. Please wait and try again.")
-                except:
+                except (ValueError, TypeError):
                     logger.error(f"Rate limit exceeded: get_user_id(@{username}). Remaining: {remaining}, Reset: {rate_limit_reset}")
+
+                # Raise exception with or without reset time
+                if reset_time:
+                    raise Exception(f"Twitter API rate limit exceeded. Resets at {reset_time}. Please wait and try again.")
+                else:
                     raise Exception("Twitter API rate limit exceeded. Please try again later.")
 
             if response.status_code != 200:
@@ -94,11 +139,27 @@ class TwitterService:
         try:
             response = requests.post(url, auth=self.auth, json=payload)
 
+            # Capture rate limit info from response
+            self._extract_rate_limit_info(response)
+
             if response.status_code == 429:
                 rate_limit_reset = response.headers.get('x-rate-limit-reset', 'unknown')
                 remaining = response.headers.get('x-rate-limit-remaining', 'unknown')
-                logger.error(f"Rate limit exceeded: add_to_list(user_id={user_id}). Remaining: {remaining}, Reset: {rate_limit_reset}")
-                raise Exception("Twitter API rate limit exceeded. Please try again later.")
+
+                # Convert reset timestamp to readable time
+                from datetime import datetime
+                reset_time = None
+                try:
+                    reset_time = datetime.fromtimestamp(int(rate_limit_reset)).strftime('%Y-%m-%d %H:%M:%S')
+                    logger.error(f"Rate limit exceeded: add_to_list(user_id={user_id}). Remaining: {remaining}, Reset at: {reset_time} (timestamp: {rate_limit_reset})")
+                except (ValueError, TypeError):
+                    logger.error(f"Rate limit exceeded: add_to_list(user_id={user_id}). Remaining: {remaining}, Reset: {rate_limit_reset}")
+
+                # Raise exception with or without reset time
+                if reset_time:
+                    raise Exception(f"Twitter API rate limit exceeded. Resets at {reset_time}. Please wait and try again.")
+                else:
+                    raise Exception("Twitter API rate limit exceeded. Please try again later.")
 
             # User already in list is considered success
             if response.status_code == 403:
@@ -138,11 +199,27 @@ class TwitterService:
         try:
             response = requests.delete(url, auth=self.auth)
 
+            # Capture rate limit info from response
+            self._extract_rate_limit_info(response)
+
             if response.status_code == 429:
                 rate_limit_reset = response.headers.get('x-rate-limit-reset', 'unknown')
                 remaining = response.headers.get('x-rate-limit-remaining', 'unknown')
-                logger.error(f"Rate limit exceeded: remove_from_list(user_id={user_id}). Remaining: {remaining}, Reset: {rate_limit_reset}")
-                raise Exception("Twitter API rate limit exceeded. Please try again later.")
+
+                # Convert reset timestamp to readable time
+                from datetime import datetime
+                reset_time = None
+                try:
+                    reset_time = datetime.fromtimestamp(int(rate_limit_reset)).strftime('%Y-%m-%d %H:%M:%S')
+                    logger.error(f"Rate limit exceeded: remove_from_list(user_id={user_id}). Remaining: {remaining}, Reset at: {reset_time} (timestamp: {rate_limit_reset})")
+                except (ValueError, TypeError):
+                    logger.error(f"Rate limit exceeded: remove_from_list(user_id={user_id}). Remaining: {remaining}, Reset: {rate_limit_reset}")
+
+                # Raise exception with or without reset time
+                if reset_time:
+                    raise Exception(f"Twitter API rate limit exceeded. Resets at {reset_time}. Please wait and try again.")
+                else:
+                    raise Exception("Twitter API rate limit exceeded. Please try again later.")
 
             if response.status_code == 404:
                 logger.warning(f"User {user_id} not found in list")
@@ -173,6 +250,9 @@ class TwitterService:
 
         try:
             response = requests.get(url, auth=self.auth)
+
+            # Capture rate limit info from response
+            self._extract_rate_limit_info(response)
 
             if response.status_code != 200:
                 logger.error(f"Twitter API error: {response.status_code} - {response.text}")
@@ -211,11 +291,27 @@ class TwitterService:
 
                 response = requests.get(url, auth=self.auth, params=params)
 
+                # Capture rate limit info from response
+                self._extract_rate_limit_info(response)
+
                 if response.status_code == 429:
                     rate_limit_reset = response.headers.get('x-rate-limit-reset', 'unknown')
                     remaining = response.headers.get('x-rate-limit-remaining', 'unknown')
-                    logger.error(f"Rate limit exceeded: get_list_members(page={len(members)//max_results + 1}). Remaining: {remaining}, Reset: {rate_limit_reset}")
-                    raise Exception("Twitter API rate limit exceeded. Please try again later.")
+
+                    # Convert reset timestamp to readable time
+                    from datetime import datetime
+                    reset_time = None
+                    try:
+                        reset_time = datetime.fromtimestamp(int(rate_limit_reset)).strftime('%Y-%m-%d %H:%M:%S')
+                        logger.error(f"Rate limit exceeded: get_list_members(page={len(members)//max_results + 1}). Remaining: {remaining}, Reset at: {reset_time} (timestamp: {rate_limit_reset})")
+                    except (ValueError, TypeError):
+                        logger.error(f"Rate limit exceeded: get_list_members(page={len(members)//max_results + 1}). Remaining: {remaining}, Reset: {rate_limit_reset}")
+
+                    # Raise exception with or without reset time
+                    if reset_time:
+                        raise Exception(f"Twitter API rate limit exceeded. Resets at {reset_time}. Please wait and try again.")
+                    else:
+                        raise Exception("Twitter API rate limit exceeded. Please try again later.")
 
                 if response.status_code != 200:
                     logger.error(f"Twitter API error: {response.status_code} - {response.text}")

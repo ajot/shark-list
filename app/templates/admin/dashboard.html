@@ -10,18 +10,59 @@
     </div>
 
     <!-- Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
         <div class="card">
             <div class="text-sm text-gray-500">Total Sharks</div>
             <div class="text-2xl font-bold text-gray-900 mt-1">{{ stats.total }}</div>
         </div>
-        <div class="card">
-            <div class="text-sm text-gray-500">App Submitted</div>
-            <div class="text-2xl font-bold text-twitter-blue mt-1">{{ stats.app_submitted }}</div>
+        {% if rate_limit_info %}
+        <div class="card {% if rate_limit_info.remaining < 50 %}border-l-4 border-red-400{% elif rate_limit_info.remaining < 150 %}border-l-4 border-yellow-400{% else %}border-l-4 border-green-400{% endif %}">
+            <div class="text-sm text-gray-500">API Requests Left</div>
+            <div class="text-2xl font-bold {% if rate_limit_info.remaining < 50 %}text-red-600{% elif rate_limit_info.remaining < 150 %}text-yellow-600{% else %}text-green-600{% endif %} mt-1" id="rate-limit-count">
+                {{ rate_limit_info.remaining }} / {{ rate_limit_info.limit }}
+            </div>
+            <div class="mt-2">
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div id="rate-limit-bar" class="{% if rate_limit_info.remaining < 50 %}bg-red-600{% elif rate_limit_info.remaining < 150 %}bg-yellow-500{% else %}bg-green-600{% endif %} h-2 rounded-full" style="width: {{ (rate_limit_info.remaining / rate_limit_info.limit * 100)|round }}%"></div>
+                </div>
+            </div>
+            {% if rate_limit_info.reset %}
+            <div class="text-xs text-gray-500 mt-1">
+                Resets: <span id="reset-time" data-reset="{{ rate_limit_info.reset }}">calculating...</span>
+            </div>
+            {% endif %}
+            <button onclick="checkRateLimit()" id="check-rate-limit-btn" class="mt-3 w-full text-xs btn-secondary py-1">
+                🔄 Check Now
+            </button>
         </div>
-        <div class="card">
-            <div class="text-sm text-gray-500">Pre-existing</div>
-            <div class="text-2xl font-bold text-green-600 mt-1">{{ stats.pre_existing }}</div>
+        {% else %}
+        <div class="card border-l-4 border-gray-300">
+            <div class="text-sm text-gray-500">API Requests Left</div>
+            <div class="text-2xl font-bold text-gray-400 mt-1" id="rate-limit-count">—</div>
+            <div class="text-xs text-gray-500 mt-1">No data yet</div>
+            <button onclick="checkRateLimit()" id="check-rate-limit-btn" class="mt-3 w-full text-xs btn-secondary py-1">
+                🔄 Check Now
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Rate Limit Banner -->
+<div id="rate-limit-banner" style="display: none;" class="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow-sm">
+    <div class="flex items-center">
+        <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+        </div>
+        <div class="ml-3">
+            <p class="text-sm font-medium text-yellow-800">
+                ⏱️ Twitter API rate limit active. Actions available in: <span id="rate-limit-countdown" class="font-bold">--:--</span>
+            </p>
+            <p class="text-xs text-yellow-700 mt-1">
+                All approve and reject actions are temporarily disabled to prevent further rate limit errors.
+            </p>
         </div>
     </div>
 </div>
@@ -270,6 +311,38 @@
     if (!canSync) {
         // Show tooltip or message when hovering over disabled button
         document.getElementById('sync-button').title = syncMessage;
+    }
+
+    // Pass rate limit state to JavaScript
+    window.rateLimitActive = {{ 'true' if rate_limit_active else 'false' }};
+    window.rateLimitReset = {{ rate_limit_reset if rate_limit_reset else 0 }};
+
+    // Calculate and display reset time
+    const resetTimeElement = document.getElementById('reset-time');
+    if (resetTimeElement) {
+        const resetTimestamp = parseInt(resetTimeElement.getAttribute('data-reset'));
+
+        function updateResetTime() {
+            const now = Math.floor(Date.now() / 1000);
+            const secondsUntilReset = resetTimestamp - now;
+
+            if (secondsUntilReset <= 0) {
+                resetTimeElement.textContent = 'Now (refresh to update)';
+                return;
+            }
+
+            const minutes = Math.floor(secondsUntilReset / 60);
+            const seconds = secondsUntilReset % 60;
+
+            if (minutes > 0) {
+                resetTimeElement.textContent = `in ${minutes}m ${seconds}s`;
+            } else {
+                resetTimeElement.textContent = `in ${seconds}s`;
+            }
+        }
+
+        updateResetTime();
+        setInterval(updateResetTime, 1000);
     }
 </script>
 {% endblock %}

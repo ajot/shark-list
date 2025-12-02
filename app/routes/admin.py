@@ -1,12 +1,95 @@
-from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, current_app
+from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, current_app, session
 from sqlalchemy import func
 from datetime import datetime
+import re
 from app import db
 from app.models import Submission, ListMember, SyncLog
 from app.services.twitter_service import TwitterService
 from app.services.sync_service import SyncService
 
 bp = Blueprint('admin', __name__)
+
+
+def parse_rate_limit_reset(error_message: str) -> int:
+    """
+    Extract rate limit reset timestamp from error message.
+
+    Args:
+        error_message: Error message string that may contain reset timestamp
+
+    Returns:
+        int: Unix timestamp when rate limit resets, or 0 if not found
+    """
+    # Look for pattern like "Resets at 2025-11-12 16:27:12"
+    match = re.search(r'Resets at (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', error_message)
+    if match:
+        try:
+            dt = datetime.strptime(match.group(1), '%Y-%m-%d %H:%M:%S')
+            return int(dt.timestamp())
+        except:
+            pass
+
+    # Look for pattern like "timestamp: 1762982832"
+    match = re.search(r'timestamp[:\s]+(\d+)', error_message)
+    if match:
+        try:
+            return int(match.group(1))
+        except:
+            pass
+
+    return 0
+
+
+def set_rate_limit_active(reset_timestamp: int):
+    """Store rate limit state in session."""
+    session['rate_limit_active'] = True
+    session['rate_limit_reset'] = reset_timestamp
+    session.modified = True
+
+
+def check_rate_limit():
+    """
+    Check if rate limit is active.
+
+    Returns:
+        tuple: (is_active, reset_timestamp)
+    """
+    if not session.get('rate_limit_active'):
+        return False, 0
+
+    reset_timestamp = session.get('rate_limit_reset', 0)
+
+    # Check if rate limit has expired
+    if reset_timestamp and datetime.now().timestamp() >= reset_timestamp:
+        session.pop('rate_limit_active', None)
+        session.pop('rate_limit_reset', None)
+        session.modified = True
+        return False, 0
+
+    return True, reset_timestamp
+
+
+def store_rate_limit_info(twitter_service: TwitterService):
+    """
+    Store rate limit info from TwitterService in session.
+
+    Args:
+        twitter_service: TwitterService instance that just made an API call
+    """
+    rate_limit_info = twitter_service.get_rate_limit_info()
+    if rate_limit_info:
+        session['twitter_rate_limit'] = rate_limit_info
+        session.modified = True
+
+
+def get_rate_limit_info():
+    """
+    Get rate limit info from session.
+
+    Returns:
+        dict: Rate limit info or None
+    """
+    return session.get('twitter_rate_limit')
 
 
 @bp.route('/')
@@ -41,6 +124,12 @@ def dashboard():
     # Check if sync is allowed
     can_sync, sync_message = SyncService.can_sync()
 
+    # Check rate limit status
+    rate_limit_active, rate_limit_reset = check_rate_limit()
+
+    # Get rate limit info
+    rate_limit_info = get_rate_limit_info()
+
     # Get stats
     stats = {
         'total': ListMember.query.count(),
@@ -57,7 +146,10 @@ def dashboard():
         last_sync=last_sync,
         can_sync=can_sync,
         sync_message=sync_message,
-        stats=stats
+        stats=stats,
+        rate_limit_active=rate_limit_active,
+        rate_limit_reset=rate_limit_reset,
+        rate_limit_info=rate_limit_info
     )
 
 
@@ -107,6 +199,9 @@ def approve(submission_id):
         # Add to Twitter list
         twitter.add_to_list(user_id)
 
+        # Store rate limit info from the API call
+        store_rate_limit_info(twitter)
+
         # Update submission
         submission.approve(user_id)
         db.session.commit()
@@ -118,9 +213,17 @@ def approve(submission_id):
 
     except Exception as e:
         db.session.rollback()
+        error_message = str(e)
+
+        # Check if this is a rate limit error
+        if 'rate limit exceeded' in error_message.lower():
+            reset_timestamp = parse_rate_limit_reset(error_message)
+            if reset_timestamp:
+                set_rate_limit_active(reset_timestamp)
+
         return jsonify({
             'success': False,
-            'message': f'Error: {str(e)}'
+            'message': f'Error: {error_message}'
         }), 500
 
 
@@ -208,6 +311,9 @@ def bulk_approve():
             # Add to list
             twitter.add_to_list(user_id)
 
+            # Store rate limit info from the API call
+            store_rate_limit_info(twitter)
+
             # Update submission
             submission.approve(user_id)
             db.session.commit()
@@ -219,10 +325,18 @@ def bulk_approve():
 
         except Exception as e:
             db.session.rollback()
+            error_message = str(e)
+
+            # Check if this is a rate limit error
+            if 'rate limit exceeded' in error_message.lower():
+                reset_timestamp = parse_rate_limit_reset(error_message)
+                if reset_timestamp:
+                    set_rate_limit_active(reset_timestamp)
+
             results['failed'].append({
                 'id': submission_id,
                 'handle': submission.twitter_handle,
-                'error': str(e)
+                'error': error_message
             })
 
     return jsonify({
@@ -330,6 +444,39 @@ def sync():
         return jsonify({
             'success': False,
             'message': f'Sync failed: {str(e)}'
+        }), 500
+
+
+@bp.route('/check-rate-limit', methods=['POST'])
+def check_rate_limit_status():
+    """Check current rate limit status by making a lightweight API call"""
+    try:
+        twitter = TwitterService()
+        # Make a lightweight API call to refresh rate limit info
+        twitter.get_list_info()
+
+        # Store rate limit info from the API call
+        store_rate_limit_info(twitter)
+
+        # Get the updated rate limit info
+        rate_limit_info = get_rate_limit_info()
+
+        if rate_limit_info:
+            return jsonify({
+                'success': True,
+                'message': f"{rate_limit_info['remaining']} requests remaining",
+                'rate_limit_info': rate_limit_info
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Could not retrieve rate limit information'
+            }), 500
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error: {str(e)}'
         }), 500
 
 
